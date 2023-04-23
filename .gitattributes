@@ -1,2 +1,50 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+@Repository
+public interface ServerRepository extends MongoRepository<Server, String> {
+    List<Server> findByNameContaining(String name);
+}
+@RestController
+@RequestMapping("/servers")
+public class ServerController {
+
+    @Autowired
+    private ServerRepository serverRepository;
+
+    @GetMapping
+    public List<Server> getServers(@RequestParam(required = false) String id) {
+        if (id != null) {
+            return serverRepository.findById(id)
+                    .map(Collections::singletonList)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        }
+        return serverRepository.findAll();
+    }
+
+    @GetMapping("/search")
+    public List<Server> searchServers(@RequestParam String name) {
+        List<Server> servers = serverRepository.findByNameContaining(name);
+        if (servers.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        return servers;
+    }
+
+    @PostMapping
+    public Server createServer(@RequestBody Server server) {
+        return serverRepository.save(server);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteServer(@PathVariable String id) {
+        if (!serverRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        serverRepository.deleteById(id);
+    }
+}
+curl http://localhost:8080/servers
+curl http://localhost:8080/servers?id=123
+curl http://localhost:8080/servers/search?name=centos
+curl -X POST -H "Content-Type: application/json" \
+-d '{"id": "123", "name": "my centos", "language": "java", "framework": "django"}' \
+http://localhost:8080/servers
+curl -X DELETE http://localhost:8080/servers/123
